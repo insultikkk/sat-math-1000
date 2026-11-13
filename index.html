@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Доска · Расписание</title>
+<style>
+  :root{
+    --txt:#fff; --muted:rgba(255,255,255,.62); --faint:rgba(255,255,255,.38);
+    --glass:rgba(255,255,255,.10); --glass-strong:rgba(255,255,255,.16);
+    --stroke:rgba(255,255,255,.22); --accent:#6fe0ff; --accent2:#b98bff; --ok:#7CF2A0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{font-family:-apple-system,"SF Pro Display","Segoe UI",system-ui,sans-serif;color:var(--txt);background:#0b1020;overflow:hidden}
+  /* спокойный «ночной» фон-обои: глубокий градиент + лёгкая текстура + виньетка */
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:
+      radial-gradient(135% 95% at 50% 115%, #273f74 0%, rgba(39,63,116,0) 56%),
+      radial-gradient(120% 80% at 50% -18%, #1a2748 0%, rgba(26,39,72,0) 52%),
+      linear-gradient(180deg,#0c1324 0%,#090e1b 55%,#060910 100%)}
+  .bg::before{content:"";position:absolute;inset:0;
+      background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);
+      background-size:28px 28px;opacity:.7;
+      -webkit-mask-image:radial-gradient(120% 100% at 50% 38%,#000 52%,transparent 100%);
+      mask-image:radial-gradient(120% 100% at 50% 38%,#000 52%,transparent 100%)}
+  .bg::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 240px 70px rgba(0,0,0,.55)}
+
+  .screen{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;padding:30px 30px 0}
+  .stage{flex:1;display:flex;gap:26px;min-height:0}
+  @media (max-width:860px){.screen{height:auto;min-height:100%;padding:18px 16px 0;overflow-y:auto}
+    .stage{flex-direction:column;gap:16px}}
+
+  .glass{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
+    border:1px solid var(--stroke);border-radius:34px;backdrop-filter:blur(26px) saturate(160%);
+    -webkit-backdrop-filter:blur(26px) saturate(160%);
+    box-shadow:0 20px 50px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+
+  .left{flex:0 0 38%;display:flex;flex-direction:column;gap:22px}
+  @media (max-width:860px){.left{flex:none}}
+  .clockcard{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+  .date{font-size:clamp(14px,1.6vw,20px);color:var(--muted);letter-spacing:.5px;text-transform:capitalize}
+  .clock{font-size:clamp(60px,10vw,140px);font-weight:700;line-height:1;letter-spacing:-2px;
+    font-variant-numeric:tabular-nums;margin:10px 0 4px;text-shadow:0 6px 30px rgba(111,224,255,.25)}
+  .clock .sec{font-size:.42em;color:var(--accent);vertical-align:super;font-weight:600}
+  .nowline{margin-top:8px;color:var(--muted);font-size:clamp(13px,1.4vw,17px)}
+  .nowline b{color:#fff;font-weight:600}
+  .weather{display:flex;align-items:center;gap:18px;padding:20px 24px;cursor:pointer;transition:.2s}
+  .weather:hover{background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.08))}
+  .weather .wicon{font-size:clamp(40px,5vw,58px);line-height:1}
+  .weather .winfo{flex:1;min-width:0}
+  .weather .wtemp{font-size:clamp(30px,3.8vw,46px);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .weather .wdesc{color:#fff;font-size:clamp(13px,1.5vw,17px);font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .weather .wmeta{color:var(--muted);font-size:clamp(11px,1.2vw,13px);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .right{flex:1;display:flex;flex-direction:column;min-height:0}
+  .schedcard{flex:1;display:flex;flex-direction:column;padding:24px 22px;min-height:0}
+  .schhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:0 6px}
+  .schhead h1{font-size:clamp(18px,2vw,26px);font-weight:700;letter-spacing:.3px}
+  .schhead .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .editbtn{border:1px solid var(--stroke);background:var(--glass);color:#fff;padding:9px 16px;border-radius:14px;font-size:13px;cursor:pointer;backdrop-filter:blur(10px);transition:.2s}
+  .editbtn:hover{background:var(--glass-strong)}
+
+  .tabs{display:flex;gap:8px;margin-bottom:14px;padding:0 6px}
+  .tab{flex:1;padding:10px 0;border-radius:15px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);
+    color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;text-align:center;transition:.2s;position:relative}
+  .tab:hover{background:rgba(255,255,255,.1);color:#fff}
+  .tab.sel{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07131f;border-color:transparent}
+  .tab.today::after{content:"";position:absolute;top:6px;right:8px;width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .tab.sel.today::after{background:#07131f}
+
+  .list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 6px;scrollbar-width:thin}
+  .list::-webkit-scrollbar{width:7px}
+  .list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:10px}
+
+  .row{display:flex;align-items:center;gap:15px;padding:13px 16px;border-radius:20px;
+    border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);position:relative;overflow:hidden;transition:.25s}
+  .row .num{flex:0 0 40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:16px;background:rgba(255,255,255,.10);border:1px solid var(--stroke)}
+  .row .mid{flex:1;min-width:0}
+  .row .name{font-size:clamp(15px,1.5vw,18px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .time{color:var(--muted);font-size:12.5px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .row .time .room{color:var(--accent);margin-left:4px}
+  .row .state{flex:0 0 auto;text-align:right}
+  .row .state .big{font-size:clamp(14px,1.5vw,19px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .row .state .lbl{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+  .row.vc .num{background:transparent;border-style:dashed;font-size:17px;color:var(--muted)}
+  .row.break{opacity:.7}
+  .row.break .num{background:transparent;border-style:dashed;font-size:17px}
+  .row.done{opacity:.4}
+  .row.done .state .big{color:var(--faint)}
+  .row.active{border-color:rgba(111,224,255,.6);background:rgba(111,224,255,.08);
+    box-shadow:0 10px 30px rgba(111,224,255,.18),inset 0 1px 0 rgba(255,255,255,.3)}
+  .row.active .num{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07131f;border-color:transparent}
+  .row.active .state .big{color:var(--accent)}
+  .row.active.brk{border-color:rgba(124,242,160,.55);background:rgba(124,242,160,.07)}
+  .row.active.brk .num{background:linear-gradient(135deg,var(--ok),#5fd0ff)}
+  .row.active.brk .state .big{color:var(--ok)}
+  .prog{position:absolute;left:0;bottom:0;height:3px;width:100%;background:rgba(255,255,255,.08)}
+  .prog .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 1s linear}
+  .row.active.brk .prog .fill{background:linear-gradient(90deg,var(--ok),#5fd0ff)}
+  .empty{margin:auto;text-align:center;color:var(--muted);padding:40px}
+
+  /* Статус-бар */
+  .statusbar{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-bottom:16px;padding:0 4px}
+  .chip{display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:15px;border:1px solid var(--stroke);
+    background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);cursor:pointer;transition:.2s;color:#fff}
+  .chip:hover{background:var(--glass-strong)}
+  .chip svg{width:18px;height:18px;display:block}
+  .chip .lbl2{font-size:13px;color:var(--muted)}
+  .chip.bell{position:relative}
+  .badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#ff4e5b;
+    color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  @media (max-width:860px){.statusbar{justify-content:center;flex-wrap:wrap}}
+
+  /* Центр управления (шторка справа) */
+  .cc{position:fixed;top:0;right:0;z-index:45;width:min(430px,94vw);height:100%;display:none;flex-direction:column;gap:14px;
+    padding:28px 26px;overflow-y:auto;background:rgba(10,14,24,.52);border-left:1px solid var(--stroke);
+    backdrop-filter:blur(36px) saturate(165%);-webkit-backdrop-filter:blur(36px) saturate(165%)}
+  .cc.on{display:flex;animation:ccin .26s ease}
+  @keyframes ccin{from{transform:translateX(34px);opacity:0}to{transform:none;opacity:1}}
+  .cc h3{font-size:17px;font-weight:700;margin-top:4px}
+  .cc .ccclose{position:absolute;top:22px;right:22px;width:40px;height:40px;border-radius:50%;border:1px solid var(--stroke);
+    background:var(--glass);color:#fff;font-size:17px;cursor:pointer;backdrop-filter:blur(10px)}
+  .toggles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tog{display:flex;align-items:center;gap:12px;padding:15px;border-radius:19px;border:1px solid var(--stroke);
+    background:rgba(255,255,255,.05);cursor:pointer;transition:.2s;color:#fff;text-align:left}
+  .tog .ti{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);flex:0 0 auto}
+  .tog .ti svg{width:20px;height:20px}
+  .tog .tx{font-size:14px;font-weight:600}
+  .tog .ts{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .tog.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07131f;border-color:transparent}
+  .tog.on .ti{background:rgba(0,0,0,.18)}
+  .tog.on .ts{color:rgba(7,19,31,.72)}
+  .slider{padding:14px 16px;border-radius:19px;border:1px solid var(--stroke);background:rgba(255,255,255,.05)}
+  .slider label{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:9px}
+  .slider input{width:100%;accent-color:var(--accent)}
+  .notifs{display:flex;flex-direction:column;gap:10px}
+  .notif{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:17px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05)}
+  .notif .nic{font-size:22px;line-height:1}
+  .notif .ntxt{flex:1;min-width:0}
+  .notif .nt{font-size:14px;font-weight:600}
+  .notif .nd{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .notif .nx{color:var(--faint);cursor:pointer;font-size:15px;padding:2px 4px}
+  .notif .nx:hover{color:#fff}
+
+  /* Док закреплённых приложений */
+  .dock{flex:0 0 auto;align-self:center;display:flex;align-items:center;gap:8px;margin:18px auto 20px;
+    padding:12px 14px;border-radius:30px;max-width:100%;
+    background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
+    border:1px solid var(--stroke);backdrop-filter:blur(30px) saturate(170%);-webkit-backdrop-filter:blur(30px) saturate(170%);
+    box-shadow:0 20px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.4)}
+  @media (max-width:860px){.dock{flex-wrap:wrap;justify-content:center;margin:16px auto 16px}}
+  .app{width:76px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;color:var(--txt);
+    border:none;background:none;font-family:inherit;padding:4px 0;border-radius:18px;transition:transform .18s}
+  .app:hover{transform:translateY(-6px)}
+  .app .ic{width:58px;height:58px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:30px;
+    border:1px solid rgba(255,255,255,.22);box-shadow:0 8px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+  .app .nm{font-size:11.5px;color:var(--muted);white-space:nowrap;max-width:74px;overflow:hidden;text-overflow:ellipsis}
+  .app:hover .nm{color:#fff}
+  .dock .sep{width:1px;height:48px;background:rgba(255,255,255,.18);margin:0 4px}
+  .app.more .ic{background:rgba(255,255,255,.09)}
+  @media (max-width:860px){.app{width:64px}.app .ic{width:50px;height:50px;font-size:25px}}
+
+  /* Экран «Все приложения» */
+  .apps{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;padding:42px 44px;
+    background:rgba(8,12,22,.55);backdrop-filter:blur(34px) saturate(160%);-webkit-backdrop-filter:blur(34px) saturate(160%)}
+  .apps.on{display:flex}
+  .apps h2{font-size:clamp(20px,2.4vw,30px);font-weight:700;margin-bottom:6px}
+  .apps .ahint{color:var(--muted);font-size:14px;margin-bottom:22px}
+  .apps .close{position:absolute;top:30px;right:34px;width:46px;height:46px;border-radius:50%;
+    border:1px solid var(--stroke);background:var(--glass);color:#fff;font-size:20px;cursor:pointer;backdrop-filter:blur(10px)}
+  .grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:24px 14px;align-content:start;padding:6px}
+  .grid .app{width:100%}
+  @media (max-width:860px){.apps{padding:26px 16px}.grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}}
+
+  .mask{position:fixed;inset:0;z-index:50;background:rgba(5,8,18,.55);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px}
+  .mask.on{display:flex}
+  .editor{width:min(600px,100%);max-height:86vh;overflow:auto;padding:26px}
+  .editor h2{font-size:20px;margin-bottom:4px}
+  .editor p.hint{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .erow{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+  .erow input{background:rgba(255,255,255,.08);border:1px solid var(--stroke);color:#fff;border-radius:11px;padding:10px;font-size:14px;font-family:inherit}
+  .erow input.pn{width:50px;text-align:center}
+  .erow input.nm{flex:1;min-width:60px}
+  .erow input.tm{width:78px;text-align:center;font-variant-numeric:tabular-nums}
+  .erow .del{border:none;background:rgba(255,90,90,.18);color:#ff9b9b;width:36px;height:40px;border-radius:11px;cursor:pointer;font-size:18px;flex:0 0 auto}
+  .erow .del:hover{background:rgba(255,90,90,.3)}
+  .ebtns{display:flex;gap:10px;margin-top:18px}
+  .ebtns button{flex:1;padding:13px;border-radius:14px;border:1px solid var(--stroke);background:var(--glass);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  .ebtns .save{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07131f;border:none}
+  .ebtns .add{background:rgba(124,242,160,.16);color:#bff6cf}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div class="screen">
+  <div class="statusbar" id="statusbar"></div>
+  <div class="stage">
+  <div class="left">
+    <div class="glass clockcard">
+      <div class="date" id="date">—</div>
+      <div class="clock" id="clock">00:00<span class="sec" id="sec">00</span></div>
+      <div class="nowline" id="nowline">—</div>
+    </div>
+    <div class="glass weather" id="weatherCard" title="Нажми, чтобы сменить город">
+      <div class="wicon" id="wIcon">🌡️</div>
+      <div class="winfo">
+        <div class="wtemp" id="wTemp">—</div>
+        <div class="wdesc" id="wDesc">Загрузка погоды…</div>
+        <div class="wmeta" id="wMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="glass schedcard">
+      <div class="schhead">
+        <div><h1>Расписание уроков</h1><div class="sub" id="subhead">—</div></div>
+        <button class="editbtn" id="openEdit">✎ Изменить</button>
+      </div>
+      <div class="tabs" id="tabs"></div>
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+  </div>
+
+  <div class="dock" id="dock"></div>
+</div>
+
+<div class="cc" id="cc">
+  <button class="ccclose" id="ccClose">✕</button>
+  <h3>Центр управления</h3>
+  <div class="toggles" id="ccToggles"></div>
+  <div class="slider"><label>Яркость <span id="brV">—</span></label><input type="range" id="brI" min="0" max="100"></div>
+  <div class="slider"><label>Громкость <span id="voV">—</span></label><input type="range" id="voI" min="0" max="100"></div>
+  <h3>Уведомления</h3>
+  <div class="notifs" id="ccNotifs"></div>
+</div>
+
+<div class="apps" id="apps">
+  <button class="close" id="appsClose">✕</button>
+  <h2>Все приложения</h2>
+  <div class="ahint">Нажми на приложение, чтобы открыть</div>
+  <div class="grid" id="appsGrid"></div>
+</div>
+
+<div class="mask" id="mask">
+  <div class="glass editor">
+    <h2 id="edTitle">Расписание</h2>
+    <p class="hint">№ урока · предмет · начало · конец · кабинет. Перемены считаются сами.</p>
+    <div id="erows"></div>
+    <div class="ebtns">
+      <button class="add" id="addRow">+ Урок</button>
+      <button id="cancelEdit">Отмена</button>
+      <button class="save" id="saveEdit">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="cmask">
+  <div class="glass editor" style="width:min(430px,100%)">
+    <h2>Город погоды</h2>
+    <p class="hint">Введи город — покажу его реальную погоду.</p>
+    <div class="erow"><input class="nm" id="cityInput" placeholder="Например: Душанбе"></div>
+    <div class="hint" id="cityMsg" style="min-height:16px"></div>
+    <div class="ebtns"><button id="cityCancel">Отмена</button><button class="save" id="citySave">Сохранить</button></div>
+  </div>
+</div>
+
+<script>
+/* ===== Недельное расписание (Пн=1 … Пт=5). Меняется кнопкой «Изменить». ===== */
+const DEFAULT = {
+ 1:[ // Понедельник
+  {p:"1",name:"Русский язык",start:"08:00",end:"08:45"},
+  {p:"•",name:"ВЧ",start:"08:50",end:"09:20"},
+  {p:"2",name:"Chem",start:"09:30",end:"10:15",room:"302"},
+  {p:"3",name:"И.Т.Н.",start:"10:20",end:"11:05"},
+  {p:"4",name:"Забони давлатӣ",start:"11:10",end:"11:55"},
+  {p:"5",name:"Algbr",start:"12:00",end:"12:45"},
+  {p:"6",name:"Этика / физ-ра",start:"13:45",end:"14:30",room:"Спортзал"},
+  {p:"7",name:"ОГиП",start:"14:35",end:"15:15"},
+ ],
+ 2:[ // Вторник
+  {p:"1",name:"Algbr",start:"08:00",end:"08:45"},
+  {p:"•",name:"W-full",start:"08:50",end:"09:20"},
+  {p:"2",name:"Bio",start:"09:30",end:"10:15",room:"105"},
+  {p:"3",name:"Phys",start:"10:20",end:"11:05",room:"304"},
+  {p:"4",name:"Общ. Ист.",start:"11:10",end:"11:55"},
+  {p:"5",name:"ICT",start:"12:00",end:"12:45"},
+  {p:"6",name:"Забони давлатӣ",start:"13:45",end:"14:30"},
+  {p:"7",name:"Geo",start:"14:35",end:"15:15"},
+ ],
+ 3:[ // Среда
+  {p:"1",name:"Phys",start:"08:00",end:"08:45",room:"304"},
+  {p:"•",name:"ВЧ",start:"08:50",end:"09:20"},
+  {p:"2",name:"География",start:"09:30",end:"10:15"},
+  {p:"3",name:"Chem",start:"10:20",end:"11:05",room:"302"},
+  {p:"4",name:"Лит. чтение",start:"11:10",end:"11:55"},
+  {p:"5",name:"И.Т.Н.",start:"12:00",end:"12:45"},
+  {p:"6",name:"Solutions",start:"13:45",end:"14:30"},
+  {p:"7",name:"ICT",start:"14:35",end:"15:15"},
+ ],
+ 4:[ // Четверг
+  {p:"1",name:"Solutions",start:"08:00",end:"08:45"},
+  {p:"•",name:"W-full",start:"08:50",end:"09:20"},
+  {p:"2",name:"Bio",start:"09:30",end:"10:15",room:"105"},
+  {p:"3",name:"Ast.",start:"10:20",end:"11:05"},
+  {p:"4",name:"Лит. чтение",start:"11:10",end:"11:55"},
+  {p:"5",name:"Phys",start:"12:00",end:"12:45",room:"304"},
+  {p:"6",name:"Русский язык",start:"13:45",end:"14:30"},
+  {p:"7",name:"Algbr",start:"14:35",end:"15:15"},
+ ],
+ 5:[ // Пятница
+  {p:"1",name:"НВП",start:"08:00",end:"08:45",room:"01"},
+  {p:"•",name:"ВЧ",start:"08:50",end:"09:20"},
+  {p:"2",name:"Мир. Эк.",start:"09:30",end:"10:15"},
+  {p:"3",name:"Этика / физ-ра",start:"10:20",end:"11:05",room:"Спортзал"},
+  {p:"4",name:"Chem",start:"11:10",end:"11:55",room:"302"},
+  {p:"5",name:"Solutions",start:"12:00",end:"12:45"},
+  {p:"6",name:"Bio",start:"13:45",end:"14:30",room:"105"},
+  {p:"7",name:"Geo",start:"14:35",end:"15:15"},
+ ],
+};
+
+const KEY="week_v2";
+function loadWeek(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s);}catch(e){}return JSON.parse(JSON.stringify(DEFAULT));}
+function saveWeek(w){try{localStorage.setItem(KEY,JSON.stringify(w));}catch(e){}}
+let week=loadWeek();
+
+const pad=n=>String(n).padStart(2,"0");
+const toMin=h=>{const[a,b]=h.split(":").map(Number);return a*60+b;};
+function fmtDur(m){m=Math.max(0,Math.round(m));const h=Math.floor(m/60),x=m%60;return h>0?h+" ч "+pad(x):x+" мин";}
+function fmtLong(s){s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h>0?pad(h)+":":"")+pad(m)+":"+pad(x);}
+const DOW=["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+const MON=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const TAB=["Пн","Вт","Ср","Чт","Пт"];
+
+function todayIdx(){const d=new Date().getDay();return(d>=1&&d<=5)?d:1;} // Сб/Вс -> показываем Пн
+let selDay=todayIdx();
+
+function buildBlocks(day){
+  const L=week[day]||[];const b=[];
+  L.forEach((l,i)=>{
+    b.push({type:(l.p==="•"?"vc":"lesson"),p:l.p,name:l.name,room:l.room,s:toMin(l.start),e:toMin(l.end),start:l.start,end:l.end});
+    const n=L[i+1];
+    if(n){const bs=toMin(l.end),be=toMin(n.start);
+      if(be>bs)b.push({type:"break",name:(be-bs>=30?"Большая перемена":"Перемена"),s:bs,e:be,start:l.end,end:n.start});}
+  });
+  return b;
+}
+
+const listEl=document.getElementById("list"),subEl=document.getElementById("subhead"),tabsEl=document.getElementById("tabs");
+
+function drawTabs(){
+  tabsEl.innerHTML="";
+  const td=todayIdx();
+  for(let d=1;d<=5;d++){
+    const t=document.createElement("div");
+    t.className="tab"+(d===selDay?" sel":"")+(d===td?" today":"");
+    t.textContent=TAB[d-1];
+    t.onclick=()=>{selDay=d;drawTabs();render();};
+    tabsEl.appendChild(t);
+  }
+}
+
+function render(){
+  const now=new Date();
+  const nowSec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
+  const nowMin=nowSec/60;
+  const isToday=(selDay===now.getDay());
+
+  document.getElementById("clock").firstChild.nodeValue=pad(now.getHours())+":"+pad(now.getMinutes());
+  document.getElementById("sec").textContent=pad(now.getSeconds());
+  document.getElementById("date").textContent=DOW[now.getDay()]+", "+now.getDate()+" "+MON[now.getMonth()];
+
+  // статус «сейчас» — всегда по сегодняшнему дню
+  const todayBlocks=buildBlocks(todayIdx());
+  let activeName="";
+  if(now.getDay()<1||now.getDay()>5)activeName="Выходной";
+  else if(todayBlocks.length){
+    if(nowMin<todayBlocks[0].s)activeName="До начала уроков";
+    else if(nowMin>=todayBlocks[todayBlocks.length-1].e)activeName="Уроки окончены";
+    todayBlocks.forEach(bl=>{if(nowMin>=bl.s&&nowMin<bl.e){
+      activeName=bl.type==="lesson"?("Идёт "+bl.p+"-й урок · "+bl.name):(bl.type==="vc"?bl.name:bl.name);}});
+  }
+  document.getElementById("nowline").innerHTML=activeName?("<b>"+activeName+"</b>"):"";
+
+  const blocks=buildBlocks(selDay);
+  listEl.innerHTML="";
+  if(!blocks.length){listEl.innerHTML='<div class="empty">Нет уроков. Нажми «Изменить».</div>';subEl.textContent="—";return;}
+
+  let doneCount=0,total=week[selDay].filter(x=>x.p!=="•").length;
+  blocks.forEach(bl=>{
+    const active=isToday&&nowMin>=bl.s&&nowMin<bl.e;
+    const done=isToday&&nowMin>=bl.e;
+    if(bl.type==="lesson"&&done)doneCount++;
+
+    const row=document.createElement("div");
+    row.className="row "+(bl.type==="break"?"break ":"")+(bl.type==="vc"?"vc ":"")+(active?"active "+(bl.type==="break"?"brk":""):"")+(done?"done":"");
+
+    const num=document.createElement("div");num.className="num";
+    num.textContent=bl.type==="lesson"?bl.p:(bl.type==="vc"?"★":"☕");
+    row.appendChild(num);
+
+    const mid=document.createElement("div");mid.className="mid";
+    mid.innerHTML='<div class="name">'+bl.name+'</div><div class="time">'+bl.start+' – '+bl.end+' · '+fmtDur(bl.e-bl.s)+
+      (bl.room?'<span class="room">· '+bl.room+'</span>':'')+'</div>';
+    row.appendChild(mid);
+
+    const st=document.createElement("div");st.className="state";
+    if(active){
+      const leftSec=(bl.e*60)-nowSec,passSec=nowSec-(bl.s*60);
+      st.innerHTML='<div class="big">'+fmtLong(leftSec)+'</div><div class="lbl">осталось · прошло '+fmtDur(passSec/60)+'</div>';
+      const pct=Math.min(100,Math.max(0,(passSec/((bl.e-bl.s)*60))*100));
+      const p=document.createElement("div");p.className="prog";p.innerHTML='<div class="fill" style="width:'+pct+'%"></div>';row.appendChild(p);
+    }else if(done){
+      st.innerHTML='<div class="big">✓</div><div class="lbl">прошёл</div>';
+    }else if(isToday){
+      const inSec=(bl.s*60)-nowSec;
+      st.innerHTML='<div class="big">через '+fmtDur(inSec/60)+'</div><div class="lbl">начнётся</div>';
+    }else{
+      st.innerHTML='<div class="lbl">'+fmtDur(bl.e-bl.s)+'</div>';
+    }
+    row.appendChild(st);
+    listEl.appendChild(row);
+  });
+  subEl.textContent=(isToday?"Сегодня · ":TAB[selDay-1]+" · ")+"уроков: "+total+(isToday?" · пройдено: "+doneCount:"");
+}
+
+/* ===== Редактор (текущий выбранный день) ===== */
+const mask=document.getElementById("mask"),erows=document.getElementById("erows");
+function eRow(l){
+  const r=document.createElement("div");r.className="erow";l=l||{p:"",name:"",start:"",end:"",room:""};
+  r.innerHTML='<input class="pn" value="'+(l.p||"")+'" placeholder="№">'+
+    '<input class="nm" value="'+(l.name||"").replace(/"/g,"&quot;")+'" placeholder="Предмет">'+
+    '<input class="tm" value="'+(l.start||"")+'" placeholder="08:00">'+
+    '<input class="tm" value="'+(l.end||"")+'" placeholder="08:45">'+
+    '<input class="tm" value="'+(l.room||"").replace(/"/g,"&quot;")+'" placeholder="каб.">'+
+    '<button class="del">×</button>';
+  r.querySelector(".del").onclick=()=>r.remove();return r;
+}
+document.getElementById("openEdit").onclick=()=>{
+  document.getElementById("edTitle").textContent="Расписание · "+["Понедельник","Вторник","Среда","Четверг","Пятница"][selDay-1];
+  erows.innerHTML="";(week[selDay]||[]).forEach(l=>erows.appendChild(eRow(l)));mask.classList.add("on");
+};
+document.getElementById("cancelEdit").onclick=()=>mask.classList.remove("on");
+document.getElementById("addRow").onclick=()=>erows.appendChild(eRow());
+document.getElementById("saveEdit").onclick=()=>{
+  const out=[];
+  erows.querySelectorAll(".erow").forEach(r=>{
+    const i=r.querySelectorAll("input");
+    const p=i[0].value.trim(),name=i[1].value.trim(),s=i[2].value.trim(),e=i[3].value.trim(),room=i[4].value.trim();
+    if(name&&/^\d{1,2}:\d{2}$/.test(s)&&/^\d{1,2}:\d{2}$/.test(e)){const o={p:p||"•",name,start:s,end:e};if(room)o.room=room;out.push(o);}
+  });
+  out.sort((a,b)=>toMin(a.start)-toMin(b.start));
+  week[selDay]=out;saveWeek(week);mask.classList.remove("on");render();
+};
+mask.onclick=e=>{if(e.target===mask)mask.classList.remove("on");};
+
+drawTabs();render();setInterval(render,1000);
+
+/* ===== Погода (Open-Meteo, без ключа) ===== */
+const WKEY="weather_city";
+const WCODE={0:["Ясно","☀️"],1:["В основном ясно","🌤️"],2:["Переменная облачность","⛅"],3:["Пасмурно","☁️"],
+ 45:["Туман","🌫️"],48:["Изморозь","🌫️"],51:["Морось","🌦️"],53:["Морось","🌦️"],55:["Морось","🌦️"],
+ 56:["Ледяная морось","🌧️"],57:["Ледяная морось","🌧️"],61:["Небольшой дождь","🌦️"],63:["Дождь","🌧️"],65:["Сильный дождь","🌧️"],
+ 66:["Ледяной дождь","🌧️"],67:["Ледяной дождь","🌧️"],71:["Небольшой снег","🌨️"],73:["Снег","🌨️"],75:["Сильный снег","❄️"],
+ 77:["Снежная крупа","🌨️"],80:["Ливень","🌦️"],81:["Ливень","🌧️"],82:["Сильный ливень","⛈️"],
+ 85:["Снегопад","🌨️"],86:["Снегопад","❄️"],95:["Гроза","⛈️"],96:["Гроза с градом","⛈️"],99:["Гроза с градом","⛈️"]};
+function loadCity(){try{const s=localStorage.getItem(WKEY);if(s)return JSON.parse(s);}catch(e){}return{name:"Душанбе",lat:38.5598,lon:68.787};}
+function saveCity(c){try{localStorage.setItem(WKEY,JSON.stringify(c));}catch(e){}}
+let city=loadCity();
+
+async function fetchWeather(){
+  try{
+    const u="https://api.open-meteo.com/v1/forecast?latitude="+city.lat+"&longitude="+city.lon+
+      "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto";
+    const r=await fetch(u);const j=await r.json();const c=j.current;
+    const wc=WCODE[c.weather_code]||["—","🌡️"];
+    document.getElementById("wIcon").textContent=wc[1];
+    document.getElementById("wTemp").textContent=Math.round(c.temperature_2m)+"°";
+    document.getElementById("wDesc").textContent=wc[0]+" · "+city.name;
+    document.getElementById("wMeta").textContent="Ощущается "+Math.round(c.apparent_temperature)+
+      "° · ветер "+Math.round(c.wind_speed_10m)+" км/ч · влажность "+c.relative_humidity_2m+"%";
+  }catch(e){
+    document.getElementById("wDesc").textContent="Нет сети · "+city.name;
+    document.getElementById("wMeta").textContent="Погода обновится при подключении";
+  }
+}
+fetchWeather();setInterval(fetchWeather,600000); // раз в 10 минут
+
+/* смена города */
+const cmask=document.getElementById("cmask"),cityInput=document.getElementById("cityInput"),cityMsg=document.getElementById("cityMsg");
+document.getElementById("weatherCard").onclick=()=>{cityInput.value=city.name;cityMsg.textContent="";cmask.classList.add("on");cityInput.focus();};
+document.getElementById("cityCancel").onclick=()=>cmask.classList.remove("on");
+cmask.onclick=e=>{if(e.target===cmask)cmask.classList.remove("on");};
+async function applyCity(){
+  const q=cityInput.value.trim();if(!q)return;
+  cityMsg.textContent="Ищу…";
+  try{
+    const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(q)+"&count=1&language=ru&format=json");
+    const j=await r.json();
+    if(j.results&&j.results[0]){const g=j.results[0];city={name:g.name,lat:g.latitude,lon:g.longitude};saveCity(city);cmask.classList.remove("on");fetchWeather();}
+    else cityMsg.textContent="Город не найден. Попробуй по-другому.";
+  }catch(e){cityMsg.textContent="Нет сети — не могу найти город.";}
+}
+document.getElementById("citySave").onclick=applyCity;
+cityInput.addEventListener("keydown",e=>{if(e.key==="Enter")applyCity();});
+
+/* ===== Приложения ===== */
+const GRID_SVG='<svg width="26" height="26" viewBox="0 0 24 24"><g fill="#fff"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></g></svg>';
+const APPS=[
+ {name:"Доска",ic:"🖊️",c:"#4f8cff,#3458c4",pin:1},
+ {name:"Браузер",ic:"🌐",c:"#2bb3ff,#1f7fd6",pin:1},
+ {name:"YouTube",ic:"▶️",c:"#ff4e45,#d11c12",pin:1},
+ {name:"Галерея",ic:"🖼️",c:"#b06bff,#7c34cc",pin:1},
+ {name:"Файлы",ic:"📁",c:"#ffb13d,#e8890f",pin:1},
+ {name:"Калькулятор",ic:"🧮",c:"#5a6472,#3b434e",pin:1},
+ {name:"Камера",ic:"📷",c:"#2fd0a6,#179079",pin:1},
+ {name:"Настройки",ic:"⚙️",c:"#8a93a3,#545d6c",pin:1},
+ {name:"Документы",ic:"📝",c:"#4f8cff,#2f54c4"},
+ {name:"Таблицы",ic:"📊",c:"#28c074,#17874b"},
+ {name:"PDF",ic:"📕",c:"#ff5b5b,#cf2626"},
+ {name:"Презентация",ic:"📽️",c:"#ff8a3d,#df5f0f"},
+ {name:"Переводчик",ic:"🌍",c:"#2bb3ff,#1a6fc0"},
+ {name:"Календарь",ic:"📅",c:"#ff4e6a,#cf1c3e"},
+ {name:"Часы",ic:"⏰",c:"#6b7585,#333a44"},
+ {name:"Заметки",ic:"🗒️",c:"#ffcf3d,#e09c0f"},
+ {name:"Музыка",ic:"🎵",c:"#ff5bb0,#cf1c7f"},
+ {name:"Видео",ic:"🎬",c:"#8a5bff,#5a2fcc"},
+ {name:"Магазин",ic:"🛍️",c:"#28c0a8,#17857a"},
+ {name:"Почта",ic:"✉️",c:"#2bb3ff,#1f7fd6"},
+ {name:"Карта",ic:"🗺️",c:"#3fcf6a,#1f9646"},
+ {name:"Zoom",ic:"🎥",c:"#2d8cff,#1f5fc4"},
+];
+function tile(a){
+  const b=document.createElement("button");b.className="app";
+  b.innerHTML='<div class="ic" style="background:linear-gradient(145deg,'+a.c+')">'+a.ic+'</div><div class="nm">'+a.name+'</div>';
+  b.onclick=()=>openApp(a.name);return b;
+}
+let toastT;
+function openApp(name){
+  clearTimeout(toastT);
+  let t=document.getElementById("toast");
+  if(!t){t=document.createElement("div");t.id="toast";
+    t.style.cssText="position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:60;padding:12px 22px;"+
+    "border-radius:16px;background:rgba(20,26,40,.88);color:#fff;font-size:15px;border:1px solid rgba(255,255,255,.2);"+
+    "backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.45)";document.body.appendChild(t);}
+  t.textContent="Открываю: "+name;t.style.opacity="1";
+  toastT=setTimeout(()=>{t.style.transition="opacity .3s";t.style.opacity="0";},1300);
+}
+const dock=document.getElementById("dock");
+APPS.filter(a=>a.pin).forEach(a=>dock.appendChild(tile(a)));
+const sep=document.createElement("div");sep.className="sep";dock.appendChild(sep);
+const more=document.createElement("button");more.className="app more";
+more.innerHTML='<div class="ic">'+GRID_SVG+'</div><div class="nm">Все</div>';
+const appsOv=document.getElementById("apps");
+more.onclick=()=>appsOv.classList.add("on");
+dock.appendChild(more);
+
+const appsGrid=document.getElementById("appsGrid");
+APPS.forEach(a=>appsGrid.appendChild(tile(a)));
+document.getElementById("appsClose").onclick=()=>appsOv.classList.remove("on");
+appsOv.onclick=e=>{if(e.target===appsOv)appsOv.classList.remove("on");};
+
+/* ===== Статус-бар и центр управления ===== */
+const ICON={
+ wifi:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 12a11 11 0 0 1 15 0"/><path d="M8 15.5a6 6 0 0 1 8 0"/><circle cx="12" cy="19" r="1.1" fill="currentColor" stroke="none"/></svg>',
+ bt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 7.5 17 16.5 12 20.5 12 3.5 17 7.5 7 16.5"/></svg>',
+ bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 4.5 2 5.5 2 5.5H4S6 13.5 6 9"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>',
+};
+const SKEY="sysstate_v1";
+function loadSys(){try{const s=localStorage.getItem(SKEY);if(s)return JSON.parse(s);}catch(e){}return{wifi:true,bt:false,air:false,flash:false,bright:80,vol:60};}
+function saveSys(){try{localStorage.setItem(SKEY,JSON.stringify(sys));}catch(e){}}
+let sys=loadSys();
+let notifs=[
+ {ic:"📅",t:"Расписание",d:"Следующий урок начнётся совсем скоро"},
+ {ic:"🔄",t:"Система",d:"Доступно обновление ПО доски"},
+ {ic:"💬",t:"Сообщение",d:"Классный руководитель: собрание в 15:00"},
+];
+
+const sbar=document.getElementById("statusbar");
+function drawBar(){
+  sbar.innerHTML="";
+  const wifi=document.createElement("button");wifi.className="chip";
+  wifi.innerHTML='<span style="opacity:'+(sys.wifi&&!sys.air?1:.4)+'">'+ICON.wifi+'</span><span class="lbl2">'+(sys.air?"Самолёт":(sys.wifi?"Школа":"Wi-Fi выкл"))+'</span>';
+  const bt=document.createElement("button");bt.className="chip";
+  bt.innerHTML='<span style="opacity:'+(sys.bt?1:.4)+'">'+ICON.bt+'</span>';
+  const bell=document.createElement("button");bell.className="chip bell";
+  bell.innerHTML=ICON.bell+(notifs.length?'<span class="badge">'+notifs.length+'</span>':'');
+  [wifi,bt,bell].forEach(c=>c.onclick=openCC);
+  sbar.append(wifi,bt,bell);
+}
+
+const cc=document.getElementById("cc"),ccT=document.getElementById("ccToggles"),ccN=document.getElementById("ccNotifs");
+const TOGS=[
+ {k:"wifi",name:"Wi-Fi",on:"Школа",off:"Выкл",icon:ICON.wifi},
+ {k:"bt",name:"Bluetooth",on:"Вкл",off:"Выкл",icon:ICON.bt},
+ {k:"air",name:"В самолёте",on:"Вкл",off:"Выкл",icon:"✈️"},
+ {k:"flash",name:"Фонарик",on:"Вкл",off:"Выкл",icon:"🔦"},
+];
+function drawToggles(){
+  ccT.innerHTML="";
+  TOGS.forEach(t=>{
+    const el=document.createElement("button");el.className="tog"+(sys[t.k]?" on":"");
+    const ih=t.icon.charAt(0)==="<"?t.icon:'<span style="font-size:20px">'+t.icon+'</span>';
+    el.innerHTML='<div class="ti">'+ih+'</div><div><div class="tx">'+t.name+'</div><div class="ts">'+(sys[t.k]?t.on:t.off)+'</div></div>';
+    el.onclick=()=>{sys[t.k]=!sys[t.k];if(t.k==="air"&&sys.air){sys.wifi=false;sys.bt=false;}saveSys();drawToggles();drawBar();};
+    ccT.appendChild(el);
+  });
+}
+function drawNotifs(){
+  ccN.innerHTML="";
+  if(!notifs.length){ccN.innerHTML='<div style="color:var(--muted);font-size:13px;padding:6px 2px">Нет уведомлений</div>';return;}
+  notifs.forEach((n,i)=>{
+    const el=document.createElement("div");el.className="notif";
+    el.innerHTML='<div class="nic">'+n.ic+'</div><div class="ntxt"><div class="nt">'+n.t+'</div><div class="nd">'+n.d+'</div></div><div class="nx">✕</div>';
+    el.querySelector(".nx").onclick=()=>{notifs.splice(i,1);drawNotifs();drawBar();};
+    ccN.appendChild(el);
+  });
+}
+const brI=document.getElementById("brI"),brV=document.getElementById("brV"),voI=document.getElementById("voI"),voV=document.getElementById("voV");
+function syncSliders(){brI.value=sys.bright;brV.textContent=sys.bright+"%";voI.value=sys.vol;voV.textContent=sys.vol+"%";}
+brI.oninput=()=>{sys.bright=+brI.value;brV.textContent=sys.bright+"%";saveSys();};
+voI.oninput=()=>{sys.vol=+voI.value;voV.textContent=sys.vol+"%";saveSys();};
+function openCC(){drawToggles();drawNotifs();syncSliders();cc.classList.add("on");}
+document.getElementById("ccClose").onclick=()=>cc.classList.remove("on");
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){cc.classList.remove("on");appsOv.classList.remove("on");}});
+drawBar();
+</script>
+</body>
+</html>
