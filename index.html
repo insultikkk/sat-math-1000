@@ -362,7 +362,10 @@ async function flush(){
   if (C.writing || !C.dirty) return;
   C.writing = true; C.dirty = false; setSync("saving");
   try {
-    await C.ref.set({ ans: S.ans, tests: S.tests.slice(-200), lang: S.lang, updated: Date.now() });
+    const doc = { ans: S.ans, tests: S.tests.slice(-200), lang: S.lang, updated: Date.now() };
+    const u = C.auth && C.auth.currentUser;
+    if (u) { doc.name = u.displayName || ""; doc.email = u.email || ""; }
+    await C.ref.set(doc);
     setSync("cloud");
   } catch (e) {
     if (e && e.code === "unavailable") { C.dirty = true; setTimeout(flush, 2000 + Math.random() * 2000); }
@@ -390,7 +393,7 @@ function watch(ref, subscribe){
     if (changed) { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} if (!(T && !T.done)) route(); }
     if (first && C.ready) {
       const remoteCount = exists ? Object.keys(data.ans || {}).length : -1;
-      if (remoteCount !== Object.keys(S.ans).length) cloudSave(); else setSync("cloud");
+      if (remoteCount !== Object.keys(S.ans).length || (C.auth && exists && !data.email)) cloudSave(); else setSync("cloud");
     }
   }, () => { clearTimeout(loadTimer); setSync("error"); C.ref = null; });
 }
