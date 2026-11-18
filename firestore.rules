@@ -1,9 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Each signed-in person can read and write only their own progress document.
     match /users/{uid} {
+      // Each signed-in person reads and writes only their own progress.
       allow read, write: if request.auth != null && request.auth.uid == uid;
+      // Only the admin account may read everyone's progress (admin.html).
+      // The real email is set in the Firebase console, not in this public file.
+      allow read: if request.auth != null
+                  && request.auth.token.email == "ADMIN_EMAIL"
+                  && request.auth.token.email_verified == true;
     }
   }
 }
