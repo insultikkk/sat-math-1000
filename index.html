@@ -180,6 +180,52 @@ table.topics button{border:0;background:none;color:var(--ink);text-decoration:un
   .drow .meter{grid-column:1/-1;order:3}
 }
 @media (max-width:520px){ nav.tabs a{padding:6px 8px} .bar{gap:10px} }
+/* Phone: thumb-reach action bar, bigger targets, compact header, prominent filter button. */
+.mbar{display:none}
+.fs-ic{font-size:1.05rem} .fs-active{color:var(--accent-ink);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .fs-caret{margin-left:auto;transition:transform .2s}
+details[open] .fs-caret{transform:rotate(180deg)}
+@media (max-width:820px){
+  .sheet .actions,.sheet .keys{display:none}
+  main{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  .mbar{display:flex;gap:8px;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);
+    box-shadow:0 -10px 30px -18px rgba(0,0,0,.45);padding:10px max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+  :root[data-world="english"] .mbar{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .mb{height:52px;min-width:52px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);font-weight:700;font-size:1rem;padding:0 14px;color:var(--ink)}
+  .mb.icon{width:52px;padding:0;font-size:1.25rem}
+  .mb.main{flex:1;background:var(--accent);border-color:var(--accent);color:#1b1500}
+  .mb.main.check{background:var(--ink);border-color:var(--ink);color:var(--card)}
+  :root[data-world="english"] .mb.main{color:#170b36}
+  :root[data-world="english"] .mb.main.check{background:var(--ink);color:#170b36}
+  .mb:disabled{opacity:.4}
+  .mb.on{border-color:var(--accent);color:var(--accent-ink)}
+  .choice{min-height:58px;padding:12px 14px;font-size:1.02rem}
+  .bubble{width:32px;height:32px;font-size:.9rem}
+  .rail summary{display:flex;align-items:center;gap:8px;font-size:1rem;padding:4px 2px;list-style:none;min-height:40px}
+  .rail summary::-webkit-details-marker{display:none}
+  .rail details{padding:12px 14px;border-width:1.5px}
+  .rail details.active{border-color:var(--accent)}
+  .chip{padding:8px 14px;font-size:.92rem}
+  select{padding:11px 10px;font-size:1rem}
+  .navgrid button{width:42px;height:42px}
+  .sheet{padding:18px 16px;gap:16px}
+  /* backdrop-filter would trap the fixed bar inside the card */
+  :root[data-world="english"] .sheet,:root[data-world="english"] .panel{backdrop-filter:none;-webkit-backdrop-filter:none;background:#1a1438}
+}
+@media (max-width:640px){
+  header{position:static}
+  .brand{display:none}
+  .bar{gap:8px;padding-block:8px}
+  .worlds{flex:1}
+  .world-btn{flex:1;justify-content:center;padding:9px 10px}
+  nav.tabs{order:3;width:100%;display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:12px;padding:3px}
+  nav.tabs a{text-align:center;padding:9px 4px;border-radius:10px}
+  nav.tabs a[aria-current="page"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  main{padding-top:12px}
+  .sync.signin-card{padding:12px 14px;gap:10px}
+  .signin-text span{display:none}
+  .google-btn{width:100%;justify-content:center;padding:11px 16px;font-size:1rem}
+  .qtext{font-size:1.04rem}
+}
 @media (prefers-reduced-motion:no-preference){ .choice,.chip,.btn{transition:background-color .12s,border-color .12s} }
 </style>
 
@@ -494,9 +540,11 @@ function renderPractice(keepIdx){
   if (P.idx >= P.list.length) P.idx = 0;
   const f = S.f;
   const topicsForDomain = Object.keys(TOPICS).filter(k => TOPIC_DOMAIN[k] && DOMAINS[TOPIC_DOMAIN[k]].w === S.world && (f.domain === "all" || TOPIC_DOMAIN[k] === f.domain));
+  const activeF = [f.domain !== "all" ? domName(f.domain) : "", f.diff !== "all" ? t(f.diff) : "", f.topic !== "all" ? topicName(f.topic) : "",
+    f.st !== "all" ? t({new:"stNew", wrong:"stWrong", right:"stRight"}[f.st]) : ""].filter(Boolean).join(", ");
   const el = document.getElementById("view-practice");
   el.innerHTML = `<div class="practice">
-    <aside class="rail"><details id="filters" ${P.railOpen ? "open" : ""}><summary>${t("filters")} · <span class="count">${P.list.length}</span></summary>
+    <aside class="rail"><details id="filters" class="${activeF ? "active" : ""}" ${P.railOpen ? "open" : ""}><summary><span class="fs-ic" aria-hidden="true">⚙</span><b>${t("filters")}</b>${activeF ? `<span class="fs-active">· ${esc(activeF)}</span>` : ""}<span class="count muted">${P.list.length}</span><span class="fs-caret" aria-hidden="true">▾</span></summary>
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="group"><span class="label">${t("domain")}</span>${chipGroup("domain", [["all",t("all")], ...worldDomains().map(k => [k, domName(k)])], f.domain)}</div>
         <div class="group"><span class="label">${t("difficulty")}</span>${chipGroup("diff", [["all",t("all")],["easy",t("easy")],["medium",t("medium")],["hard",t("hard")]], f.diff)}</div>
@@ -562,7 +610,13 @@ function renderSheet(){
       <button class="btn accent" id="next">${t("next")} →</button>
     </div>
     ${exp}
-    <div class="hint muted">${t("keys")}</div>`;
+    <div class="hint muted keys">${t("keys")}</div>
+    <div class="mbar" role="toolbar" aria-label="${t("question")}">
+      <button class="mb icon" id="m-prev" type="button" aria-label="${t("prev")}" ${P.idx === 0 ? "disabled" : ""}>←</button>
+      <button class="mb icon" id="m-rand" type="button" aria-label="${t("random")}">⤮</button>
+      <button class="mb ${P.checked || P.showExp ? "on" : ""}" id="m-exp" type="button">${t("explanation")}</button>
+      <button class="mb main ${P.checked ? "" : "check"}" id="m-main" type="button" ${!P.checked && q.type === "mc" && P.picked === null ? "disabled" : ""}>${P.checked ? t("next") + " →" : t("check")}</button>
+    </div>`;
   math(sh);
   sh.querySelectorAll(".choice").forEach(b => b.addEventListener("click", () => { P.picked = +b.dataset.c; renderSheet(); }));
   const gi = sh.querySelector("#grid-input");
@@ -572,13 +626,20 @@ function renderSheet(){
   sh.querySelector("#prev").addEventListener("click", () => go(P.idx - 1));
   sh.querySelector("#next").addEventListener("click", () => go(P.idx + 1));
   sh.querySelector("#rand").addEventListener("click", () => go(Math.floor(Math.random() * P.list.length)));
+  sh.querySelector("#m-prev").addEventListener("click", () => go(P.idx - 1));
+  sh.querySelector("#m-rand").addEventListener("click", () => go(Math.floor(Math.random() * P.list.length)));
+  sh.querySelector("#m-main").addEventListener("click", () => P.checked ? go(P.idx + 1) : check());
+  sh.querySelector("#m-exp").addEventListener("click", () => {
+    if (!P.checked && !P.showExp) { P.showExp = true; renderSheet(); }
+    const ex = sh.querySelector(".explain"); if (ex) ex.scrollIntoView({behavior:"smooth", block:"start"});
+  });
 }
 function go(i){
   if (!P.list.length) return;
   P.idx = (i + P.list.length) % P.list.length; resetQ();
   // keep the list stable while paging, even if status filters would now exclude the current item
   renderSheet();
-  const sh = document.getElementById("sheet"); if (sh && sh.getBoundingClientRect().top < 0) sh.scrollIntoView({block:"start"});
+  const sh = document.getElementById("sheet"); if (sh && sh.getBoundingClientRect().top < 0) sh.scrollIntoView({block:"start", behavior:"smooth"});
 }
 function record(q, ok){
   const r = S.ans[q.id] || {n:0};
@@ -595,6 +656,7 @@ function check(){
     P.lastOk = gridCorrect(q, p);
   }
   P.checked = true; record(q, P.lastOk); renderSheet();
+  if (matchMedia("(max-width:820px)").matches) { const v = document.querySelector("#sheet .verdict"); if (v) v.scrollIntoView({behavior:"smooth", block:"center"}); }
 }
 document.addEventListener("keydown", e => {
   if (document.getElementById("view-practice").hidden) return;
@@ -677,7 +739,12 @@ function renderTest(){
     <div class="actions"><button class="btn" id="t-prev" ${T.cur === 0 ? "disabled" : ""}>← ${t("prev")}</button>
       <button class="btn" id="t-flag">${T.flags[id] ? t("unflag") : t("flag")}</button><span class="spacer"></span>
       ${T.w === "math" ? `<a class="ext" href="https://www.desmos.com/calculator" target="_blank" rel="noopener">${t("desmos")}</a>` : ""}
-      <button class="btn accent" id="t-next" ${T.cur === T.ids.length - 1 ? "disabled" : ""}>${t("next")} →</button></div></div>`;
+      <button class="btn accent" id="t-next" ${T.cur === T.ids.length - 1 ? "disabled" : ""}>${t("next")} →</button></div>
+    <div class="mbar" role="toolbar">
+      <button class="mb icon" id="tm-prev" type="button" aria-label="${t("prev")}" ${T.cur === 0 ? "disabled" : ""}>←</button>
+      <button class="mb ${T.flags[id] ? "on" : ""}" id="tm-flag" type="button">⚑ ${T.flags[id] ? t("unflag") : t("flag")}</button>
+      <button class="mb main" id="tm-next" type="button">${T.cur === T.ids.length - 1 ? t("finish") : t("next") + " →"}</button>
+    </div></div>`;
   math(el);
   el.querySelectorAll(".choice").forEach(b => b.addEventListener("click", () => { T.ans[id] = +b.dataset.c; renderTest(); }));
   const gi = el.querySelector("#test-grid"); if (gi) gi.addEventListener("input", e => { T.ans[id] = e.target.value; });
@@ -686,6 +753,12 @@ function renderTest(){
   el.querySelector("#t-prev").addEventListener("click", () => { T.cur--; renderTest(); });
   el.querySelector("#t-next").addEventListener("click", () => { T.cur++; renderTest(); });
   el.querySelector("#t-flag").addEventListener("click", () => { T.flags[id] = !T.flags[id]; renderTest(); });
+  el.querySelector("#tm-prev").addEventListener("click", () => { T.cur--; renderTest(); window.scrollTo({top:0, behavior:"smooth"}); });
+  el.querySelector("#tm-flag").addEventListener("click", () => { T.flags[id] = !T.flags[id]; renderTest(); });
+  el.querySelector("#tm-next").addEventListener("click", () => {
+    if (T.cur < T.ids.length - 1) { T.cur++; renderTest(); window.scrollTo({top:0, behavior:"smooth"}); }
+    else if (unanswered) { T.confirm = true; renderTest(); window.scrollTo({top:0, behavior:"smooth"}); } else finishTest();
+  });
   const fin = el.querySelector("#finish"); if (fin) fin.addEventListener("click", () => { if (unanswered) { T.confirm = true; renderTest(); } else finishTest(); });
   const yf = el.querySelector("#yes-finish"); if (yf) yf.addEventListener("click", finishTest);
   const nf = el.querySelector("#no-finish"); if (nf) nf.addEventListener("click", () => { T.confirm = false; renderTest(); });
