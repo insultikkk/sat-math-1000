@@ -1,14 +1,33 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Only the admin account may read everyone's progress (admin.html).
+    // The real address is set in the Firebase console, not in this public file.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "ADMIN_EMAIL"
+        && request.auth.token.email_verified == true;
+    }
+
+    // Shape of a progress document. Scores are computed in the student's browser,
+    // so they are self-reported; the admin page re-checks every value it shows.
+    function validProgress(d) {
+      return d.keys().hasOnly(['ans', 'tests', 'lang', 'updated', 'name', 'email'])
+        && d.ans is map && d.ans.size() <= 2000
+        && d.tests is list && d.tests.size() <= 200
+        && d.lang in ['ru', 'en']
+        && d.updated is int
+        && (!('name' in d) || (d.name is string && d.name.size() <= 100))
+        // the email shown to the admin must be the signed-in account's verified email
+        && (!('email' in d) || (d.email == request.auth.token.email && request.auth.token.email_verified == true));
+    }
+
     match /users/{uid} {
-      // Each signed-in person reads and writes only their own progress.
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      // Only the admin account may read everyone's progress (admin.html).
-      // The real email is set in the Firebase console, not in this public file.
-      allow read: if request.auth != null
-                  && request.auth.token.email == "ADMIN_EMAIL"
-                  && request.auth.token.email_verified == true;
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && validProgress(request.resource.data);
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }
 }
