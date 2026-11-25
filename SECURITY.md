@@ -1,21 +1,28 @@
-# Security Policy
+# Политика безопасности / Security Policy
 
-## Supported Versions
+## Поддерживаемая версия
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Поддерживается только текущая версия сайта https://insultikkk.github.io/sat-math-1000/ — то, что лежит в ветке `main`. Отдельных выпусков у проекта нет.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Как сообщить об уязвимости
 
-## Reporting a Vulnerability
+Если вы нашли уязвимость (доступ к чужим данным, обход правил Firestore, XSS и т. п.):
 
-Use this section to tell people how to report a vulnerability.
+1. **Не публикуйте детали в открытом Issue.**
+2. Сообщите приватно: вкладка **Security** → **Report a vulnerability** в этом репозитории.
+   Если эта кнопка недоступна, откройте Issue с заголовком «Security» без технических деталей — с вами свяжутся.
+3. Опишите, что именно можно сделать, и шаги, чтобы это воспроизвести.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+На сообщение постараемся ответить в течение 7 дней.
+
+## Что считается уязвимостью
+
+- чтение или изменение прогресса другого ученика;
+- доступ к админ-панели без прав администратора;
+- выполнение чужого кода на странице (XSS).
+
+Публичный ключ `firebaseConfig` в коде уязвимостью не является: это веб-ключ Firebase, он публичный по задумке, а доступ ограничивают правила Firestore.
+
+---
+
+**English:** only the current `main` branch (the live site) is supported. Please report vulnerabilities privately through **Security → Report a vulnerability**, or open an issue titled "Security" without technical details. We aim to respond within 7 days.
