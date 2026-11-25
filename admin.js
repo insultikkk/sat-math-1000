@@ -183,7 +183,8 @@ let accessState = "signin", accessEmail = "";
 /* ---------- rendering ---------- */
 const COLS = [["name","Ученик"],["math","Math"],["english","English"],["est","Оценка SAT"],["tests","Тесты"],["updated","Активность"]];
 const sortVal = (u, k) => k === "name" ? (u.name || u.email).toLowerCase() : k === "math" ? u.w.math.n : k === "english" ? u.w.english.n : k === "tests" ? u.tests.length : k === "est" ? (u.est || 0) : u.updated;
-function typeset(el){ if (window.renderMathInElement) { try { renderMathInElement(el, {delimiters:[{left:"\\(", right:"\\)", display:false}], throwOnError:false}); } catch (e) {} } }
+/* Typeset only trusted question cards, never text that came from student records (names, answers). */
+function typeset(el){ if (window.renderMathInElement) el.querySelectorAll(".qcard .qtext, .qcard ol.ch, .qcard details.exp").forEach(n => { try { renderMathInElement(n, {delimiters:[{left:"\\(", right:"\\)", display:false}], throwOnError:false, trust:false}); } catch (e) {} }); }
 function meter(c, n){ return `<div class="meter"><i class="g" style="width:${n ? 100 * c / n : 0}%"></i><i class="r" style="width:${n ? 100 * (n - c) / n : 0}%"></i></div>`; }
 function isRight(m, a){
   if (a === null || a === undefined || a === "") return false;
