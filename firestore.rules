@@ -14,7 +14,7 @@ service cloud.firestore {
     // so they are self-reported; the admin page re-checks every value it shows.
     function validProgress(d) {
       return d.keys().hasOnly(['ans', 'tests', 'lang', 'updated', 'name', 'email'])
-        && d.ans is map && d.ans.size() <= 2000
+        && d.ans is map && d.ans.size() <= 3000
         && d.tests is list && d.tests.size() <= 200
         && d.lang in ['ru', 'en']
         && d.updated is int
